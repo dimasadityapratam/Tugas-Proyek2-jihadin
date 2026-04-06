@@ -29,3 +29,16 @@ def format_order_detail(order, items):
     if order.get("catatan"):
         lines.append(f"📝 Catatan: {order['catatan']}")
     return "\n".join(lines)
+
+def get_ongkir():
+    val = get_setting("ongkir")
+    return float(val) if val else 10000
+
+def get_gratis_ongkir_min():
+    val = get_setting("gratis_ongkir_min")
+    return float(val) if val else 0
+
+def get_min_order():
+    val = get_setting("min_order")
+    return float(val) if val else 0
+
