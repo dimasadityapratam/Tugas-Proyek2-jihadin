@@ -42,3 +42,17 @@ def get_min_order():
     val = get_setting("min_order")
     return float(val) if val else 0
 
+STATUS_EMOJI = {
+    "Menunggu Persetujuan Admin": "⏳",
+    "Menunggu Pembayaran": "💳",
+    "Pesanan Disiapkan": "📦",
+    "Pesanan Diantar": "🚚",
+    "Pesanan Diterima": "✅",
+    "Pesanan Siap Diambil": "🏪",
+    "Pesanan Diambil": "✅",
+    "Selesai": "🎉",
+    "Dibatalkan": "❌",
+}
+
+def status_with_emoji(status):
+    return f"{STATUS_EMOJI.get(status, '📌')} {status}"
