@@ -182,3 +182,51 @@ async def callback_router(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     elif data.startswith("resolusi_"):
         await resolusi_callback(update, ctx)
 
+# ─── CARI BARANG COMMAND ──────────────────────────────────────────────────────
+
+async def cari_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    ctx.user_data["search_active"] = True
+    await update.message.reply_text("🔍 Ketik nama barang yang ingin dicari:")
+
+# ─── MAIN ─────────────────────────────────────────────────────────────────────
+
+def main():
+    init_db()
+
+    # Jika perlu proxy, uncomment dan isi:
+    # from telegram.request import HTTPXRequest
+    # request = HTTPXRequest(proxy="socks5://user:pass@host:port")
+    # app = Application.builder().token(BOT_TOKEN).request(request).build()
+
+    app = Application.builder().token(BOT_TOKEN).build()
+
+    # Commands
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("admin", admin_login))
+    app.add_handler(CommandHandler("order", order_detail_command))
+    app.add_handler(CommandHandler("bayar", bayar_command))
+    app.add_handler(CommandHandler("cari", cari_command))
+    app.add_handler(CommandHandler("setstatus", setstatus_command))
+    app.add_handler(CommandHandler("setstok", setstok_command))
+    app.add_handler(CommandHandler("addprod", addprod_command))
+    app.add_handler(CommandHandler("editprod", editprod_command))
+    app.add_handler(CommandHandler("set", set_command))
+    app.add_handler(CommandHandler("setqris", setqris_command))
+
+    # Callback queries
+    app.add_handler(CallbackQueryHandler(callback_router))
+
+    # Pesan foto
+    app.add_handler(MessageHandler(filters.PHOTO, photo_router))
+
+    # Pesan teks (menu & state)
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message_router))
+
+    # Error handler
+    app.add_error_handler(error_handler)
+
+    logger.info("Bot started...")
+    app.run_polling(allowed_updates=Update.ALL_TYPES)
+
+if __name__ == "__main__":
+    main()
