@@ -205,3 +205,79 @@ def add_admin(user_id, username):
     conn.execute("INSERT OR IGNORE INTO admins (user_id, username) VALUES (?,?)", (user_id, username))
     conn.commit()
     conn.close()
+
+# ─── CATEGORIES ──────────────────────────────────────────────────────────────
+
+def get_categories():
+    conn = get_conn()
+    rows = conn.execute("SELECT * FROM categories").fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def add_category(nama):
+    conn = get_conn()
+    conn.execute("INSERT OR IGNORE INTO categories (nama) VALUES (?)", (nama,))
+    conn.commit()
+    conn.close()
+
+# ─── PRODUCTS ────────────────────────────────────────────────────────────────
+
+def get_products(category_id=None, search=None):
+    conn = get_conn()
+    query = "SELECT p.*, c.nama as kategori FROM products p LEFT JOIN categories c ON p.category_id=c.id WHERE p.aktif=1"
+    params = []
+    if category_id:
+        query += " AND p.category_id=?"
+        params.append(category_id)
+    if search:
+        query += " AND p.nama LIKE ?"
+        params.append(f"%{search}%")
+    rows = conn.execute(query, params).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def get_product(product_id):
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT p.*, c.nama as kategori FROM products p LEFT JOIN categories c ON p.category_id=c.id WHERE p.id=?",
+        (product_id,)
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def add_product(nama, harga, stok, deskripsi, foto, category_id):
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute(
+        "INSERT INTO products (nama, harga, stok, deskripsi, foto, category_id) VALUES (?,?,?,?,?,?)",
+        (nama, harga, stok, deskripsi, foto, category_id)
+    )
+    pid = c.lastrowid
+    conn.execute("INSERT OR REPLACE INTO stock (product_id, stok) VALUES (?,?)", (pid, stok))
+    conn.commit()
+    conn.close()
+    return pid
+
+def update_product(product_id, **kwargs):
+    conn = get_conn()
+    for k, v in kwargs.items():
+        conn.execute(f"UPDATE products SET {k}=? WHERE id=?", (v, product_id))
+    if "stok" in kwargs:
+        conn.execute("INSERT OR REPLACE INTO stock (product_id, stok, updated_at) VALUES (?,?,datetime('now','localtime'))",
+                     (product_id, kwargs["stok"]))
+    conn.commit()
+    conn.close()
+
+def delete_product(product_id):
+    conn = get_conn()
+    conn.execute("UPDATE products SET aktif=0 WHERE id=?", (product_id,))
+    conn.commit()
+    conn.close()
+
+def get_all_products_admin():
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT p.*, c.nama as kategori FROM products p LEFT JOIN categories c ON p.category_id=c.id WHERE p.aktif=1"
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
