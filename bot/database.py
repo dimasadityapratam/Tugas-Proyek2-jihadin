@@ -144,3 +144,64 @@ def init_db():
 
     conn.commit()
     conn.close()
+
+# ─── SETTINGS ────────────────────────────────────────────────────────────────
+
+def get_setting(key):
+    conn = get_conn()
+    row = conn.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
+    conn.close()
+    return row["value"] if row else None
+
+def set_setting(key, value):
+    conn = get_conn()
+    conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
+    conn.commit()
+    conn.close()
+
+# ─── USERS ───────────────────────────────────────────────────────────────────
+
+def upsert_user(user_id, username, nama=None):
+    conn = get_conn()
+    existing = conn.execute("SELECT * FROM users WHERE user_id=?", (user_id,)).fetchone()
+    if not existing:
+        conn.execute("INSERT INTO users (user_id, username, nama) VALUES (?,?,?)", (user_id, username, nama or username))
+        conn.commit()
+    conn.close()
+
+def get_user(user_id):
+    conn = get_conn()
+    row = conn.execute("SELECT * FROM users WHERE user_id=?", (user_id,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def update_user(user_id, nama=None, no_hp=None, alamat=None):
+    conn = get_conn()
+    if nama:
+        conn.execute("UPDATE users SET nama=? WHERE user_id=?", (nama, user_id))
+    if no_hp:
+        conn.execute("UPDATE users SET no_hp=? WHERE user_id=?", (no_hp, user_id))
+    if alamat:
+        conn.execute("UPDATE users SET alamat=? WHERE user_id=?", (alamat, user_id))
+    conn.commit()
+    conn.close()
+
+def get_all_users():
+    conn = get_conn()
+    rows = conn.execute("SELECT * FROM users").fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+# ─── ADMIN ───────────────────────────────────────────────────────────────────
+
+def is_admin(user_id):
+    conn = get_conn()
+    row = conn.execute("SELECT * FROM admins WHERE user_id=?", (user_id,)).fetchone()
+    conn.close()
+    return row is not None
+
+def add_admin(user_id, username):
+    conn = get_conn()
+    conn.execute("INSERT OR IGNORE INTO admins (user_id, username) VALUES (?,?)", (user_id, username))
+    conn.commit()
+    conn.close()
