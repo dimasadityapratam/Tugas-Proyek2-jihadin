@@ -153,3 +153,32 @@ async def search_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         ctx.user_data["search_active"] = False
         await proses_cari(update, ctx)
 
+# ─── CALLBACK ROUTER ──────────────────────────────────────────────────────────
+
+async def callback_router(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Router semua callback query."""
+    data = update.callback_query.data
+
+    if data.startswith(("cat_", "page_", "prod_", "addcart_", "back_")):
+        await katalog_callback(update, ctx)
+    elif data in ("checkout", "clear_cart") or data.startswith("delcart_"):
+        await keranjang_callback(update, ctx)
+    elif data in ("pickup", "delivery", "cancel_checkout"):
+        await checkout_callback(update, ctx)
+    elif data in ("pay_qris", "pay_cod"):
+        await checkout_callback(update, ctx)
+    elif data.startswith("sudah_bayar_"):
+        await pembayaran_callback(update, ctx)
+    elif data.startswith("confirm_order_") or data.startswith("complaint_") or data.startswith("komp_"):
+        await order_action_callback(update, ctx)
+    elif data.startswith("approve_") or data.startswith("reject_"):
+        await approve_callback(update, ctx)
+    elif data.startswith("setstatus_"):
+        await setstatus_callback(update, ctx)
+    elif data.startswith("konfpay_"):
+        await konfirmasi_pembayaran_callback(update, ctx)
+    elif data.startswith("editprod_") or data.startswith("delprod_"):
+        await editprod_callback(update, ctx)
+    elif data.startswith("resolusi_"):
+        await resolusi_callback(update, ctx)
+
