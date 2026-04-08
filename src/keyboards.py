@@ -79,4 +79,26 @@ def produk_detail_keyboard(product_id, stok):
     buttons.append([InlineKeyboardButton("🔙 Kembali", callback_data="back_produk")])
     return InlineKeyboardMarkup(buttons)
 
+def cart_keyboard(cart_items):
+    buttons = []
+    for item in cart_items:
+        buttons.append([InlineKeyboardButton(f"❌ Hapus {item['nama']}", callback_data=f"delcart_{item['product_id']}")])
+    buttons.append([InlineKeyboardButton("🛒 Checkout", callback_data="checkout")])
+    buttons.append([InlineKeyboardButton("🗑️ Kosongkan Keranjang", callback_data="clear_cart")])
+    return InlineKeyboardMarkup(buttons)
+
+def metode_pengambilan_keyboard():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🏪 Ambil di Toko", callback_data="pickup")],
+        [InlineKeyboardButton("🚚 Delivery", callback_data="delivery")],
+        [InlineKeyboardButton("❌ Batal", callback_data="cancel_checkout")],
+    ])
+
+def metode_pembayaran_keyboard():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📱 QRIS", callback_data="pay_qris")],
+        [InlineKeyboardButton("💵 COD (Bayar di Tempat)", callback_data="pay_cod")],
+        [InlineKeyboardButton("❌ Batal", callback_data="cancel_checkout")],
+    ])
+
 
