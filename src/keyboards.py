@@ -159,4 +159,12 @@ def resolusi_komplain_keyboard(complaint_id):
         [InlineKeyboardButton("✅ Selesaikan", callback_data=f"resolusi_{complaint_id}_selesai")],
     ])
 
+def produk_admin_keyboard(product_id):
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("✏️ Edit Harga", callback_data=f"editprod_harga_{product_id}")],
+        [InlineKeyboardButton("📦 Edit Stok", callback_data=f"editprod_stok_{product_id}")],
+        [InlineKeyboardButton("📝 Edit Deskripsi", callback_data=f"editprod_deskripsi_{product_id}")],
+        [InlineKeyboardButton("🖼️ Ganti Foto", callback_data=f"editprod_foto_{product_id}")],
+        [InlineKeyboardButton("🗑️ Hapus Produk", callback_data=f"delprod_{product_id}")],
+    ])
 
