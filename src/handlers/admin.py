@@ -34,3 +34,60 @@ async def admin_logout(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     conn.close()
     from keyboards import main_menu
     await update.message.reply_text("👋 Kamu telah keluar dari mode admin.", reply_markup=main_menu())
+
+# ─── PESANAN MASUK ────────────────────────────────────────────────────────────
+
+async def pesanan_masuk(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        return
+    orders = get_all_orders(status="Menunggu Persetujuan Admin")
+    if not orders:
+        await update.message.reply_text("📥 Tidak ada pesanan masuk.", reply_markup=admin_menu())
+        return
+    for o in orders[:10]:
+        items = get_order_items(o["order_id"])
+        detail = format_order_detail(o, items)
+        await update.message.reply_text(
+            detail,
+            parse_mode="Markdown",
+            reply_markup=approve_order_keyboard(o["order_id"])
+        )
+
+async def approve_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    if not is_admin(query.from_user.id):
+        await query.answer("❌ Bukan admin!", show_alert=True)
+        return
+    data = query.data
+
+    if data.startswith("approve_"):
+        order_id = data.replace("approve_", "")
+        order = get_order(order_id)
+        update_order_status(order_id, "Menunggu Pembayaran")
+        await query.edit_message_text(
+            f"✅ Pesanan `{order_id}` *disetujui*.\nStatus: Menunggu Pembayaran",
+            parse_mode="Markdown"
+        )
+        # Notif customer
+        if order:
+            try:
+                msg = f"✅ Pesanan kamu `{order_id}` telah *disetujui admin*!\n\n"
+                if order["metode_pembayaran"] == "QRIS":
+                    msg += f"Silakan lakukan pembayaran QRIS sebesar *{format_rupiah(order['total'])}*\nGunakan /bayar {order_id}"
+                else:
+                    msg += "Pembayaran COD - bayar saat barang diterima."
+                await ctx.bot.send_message(order["user_id"], msg, parse_mode="Markdown")
+            except Exception:
+                pass
+
+    elif data.startswith("reject_"):
+        order_id = data.replace("reject_", "")
+        order = get_order(order_id)
+        update_order_status(order_id, "Dibatalkan")
+        await query.edit_message_text(f"❌ Pesanan `{order_id}` *ditolak*.", parse_mode="Markdown")
+        if order:
+            try:
+                await ctx.bot.send_message(order["user_id"], f"❌ Maaf, pesanan kamu `{order_id}` ditolak oleh admin.", parse_mode="Markdown")
+            except Exception:
+                pass
