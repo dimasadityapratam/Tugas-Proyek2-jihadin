@@ -281,3 +281,103 @@ def get_all_products_admin():
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+# ─── CART ─────────────────────────────────────────────────────────────────────
+
+def get_cart(user_id):
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT c.*, p.nama, p.harga, p.stok, p.foto FROM cart c JOIN products p ON c.product_id=p.id WHERE c.user_id=?",
+        (user_id,)
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def add_to_cart(user_id, product_id, jumlah=1):
+    conn = get_conn()
+    existing = conn.execute("SELECT * FROM cart WHERE user_id=? AND product_id=?", (user_id, product_id)).fetchone()
+    if existing:
+        conn.execute("UPDATE cart SET jumlah=jumlah+? WHERE user_id=? AND product_id=?", (jumlah, user_id, product_id))
+    else:
+        conn.execute("INSERT INTO cart (user_id, product_id, jumlah) VALUES (?,?,?)", (user_id, product_id, jumlah))
+    conn.commit()
+    conn.close()
+
+def remove_from_cart(user_id, product_id):
+    conn = get_conn()
+    conn.execute("DELETE FROM cart WHERE user_id=? AND product_id=?", (user_id, product_id))
+    conn.commit()
+    conn.close()
+
+def clear_cart(user_id):
+    conn = get_conn()
+    conn.execute("DELETE FROM cart WHERE user_id=?", (user_id,))
+    conn.commit()
+    conn.close()
+
+# ─── ORDERS ──────────────────────────────────────────────────────────────────
+
+def generate_order_id():
+    now = datetime.now()
+    conn = get_conn()
+    count = conn.execute("SELECT COUNT(*) as c FROM orders WHERE tanggal LIKE ?", (f"{now.strftime('%Y-%m-%d')}%",)).fetchone()["c"]
+    conn.close()
+    return f"INV{now.strftime('%Y%m%d')}{str(count+1).zfill(4)}"
+
+def create_order(user_id, nama, alamat, no_hp, metode_pengambilan, metode_pembayaran, subtotal, ongkir, total, catatan=""):
+    order_id = generate_order_id()
+    conn = get_conn()
+    conn.execute(
+        "INSERT INTO orders (order_id,user_id,nama,alamat,no_hp,metode_pengambilan,metode_pembayaran,subtotal,ongkir,total,catatan) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        (order_id, user_id, nama, alamat, no_hp, metode_pengambilan, metode_pembayaran, subtotal, ongkir, total, catatan)
+    )
+    conn.commit()
+    conn.close()
+    return order_id
+
+def add_order_items(order_id, items):
+    conn = get_conn()
+    for item in items:
+        conn.execute(
+            "INSERT INTO order_items (order_id,product_id,nama_produk,harga,jumlah,subtotal) VALUES (?,?,?,?,?,?)",
+            (order_id, item["product_id"], item["nama"], item["harga"], item["jumlah"], item["harga"]*item["jumlah"])
+        )
+        # Kurangi stok
+        conn.execute("UPDATE products SET stok=stok-? WHERE id=?", (item["jumlah"], item["product_id"]))
+        conn.execute("UPDATE stock SET stok=stok-?, updated_at=datetime('now','localtime') WHERE product_id=?",
+                     (item["jumlah"], item["product_id"]))
+    conn.commit()
+    conn.close()
+
+def get_order(order_id):
+    conn = get_conn()
+    row = conn.execute("SELECT * FROM orders WHERE order_id=?", (order_id,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def get_order_items(order_id):
+    conn = get_conn()
+    rows = conn.execute("SELECT * FROM order_items WHERE order_id=?", (order_id,)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def get_user_orders(user_id):
+    conn = get_conn()
+    rows = conn.execute("SELECT * FROM orders WHERE user_id=? ORDER BY tanggal DESC", (user_id,)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def get_all_orders(status=None):
+    conn = get_conn()
+    if status:
+        rows = conn.execute("SELECT * FROM orders WHERE status=? ORDER BY tanggal DESC", (status,)).fetchall()
+    else:
+        rows = conn.execute("SELECT * FROM orders ORDER BY tanggal DESC").fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def update_order_status(order_id, status):
+    conn = get_conn()
+    conn.execute("UPDATE orders SET status=? WHERE order_id=?", (status, order_id))
+    conn.commit()
+    conn.close()
