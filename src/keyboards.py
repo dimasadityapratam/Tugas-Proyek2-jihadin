@@ -143,3 +143,20 @@ def status_update_keyboard(order_id, metode):
     buttons = [[InlineKeyboardButton(s, callback_data=f"setstatus_{order_id}_{s}")] for s in statuses]
     return InlineKeyboardMarkup(buttons)
 
+def konfirmasi_pembayaran_keyboard(order_id):
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("✅ Konfirmasi Lunas", callback_data=f"konfpay_{order_id}_lunas"),
+            InlineKeyboardButton("❌ Tolak", callback_data=f"konfpay_{order_id}_tolak"),
+        ]
+    ])
+
+def resolusi_komplain_keyboard(complaint_id):
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📦 Kirim Kekurangan", callback_data=f"resolusi_{complaint_id}_kirim")],
+        [InlineKeyboardButton("🔄 Tukar Barang", callback_data=f"resolusi_{complaint_id}_tukar")],
+        [InlineKeyboardButton("💰 Refund", callback_data=f"resolusi_{complaint_id}_refund")],
+        [InlineKeyboardButton("✅ Selesaikan", callback_data=f"resolusi_{complaint_id}_selesai")],
+    ])
+
+
