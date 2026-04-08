@@ -391,3 +391,32 @@ async def data_customer(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         lines.append(f"• {u['nama'] or '-'} | {u['no_hp'] or '-'} | @{u['username'] or '-'}")
     await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
+# ─── LAPORAN PENJUALAN ────────────────────────────────────────────────────────
+
+async def laporan_penjualan(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        return
+    from datetime import datetime
+    today = datetime.now().strftime("%Y-%m-%d")
+    orders = laporan_harian(today)
+    total_omzet = sum(o["total"] for o in orders)
+    terlaris = barang_terlaris(5)
+    top_customer = customer_terbanyak(5)
+
+    lines = [
+        f"📈 *Laporan Penjualan Hari Ini ({today})*\n",
+        f"📦 Total Pesanan Selesai: {len(orders)}",
+        f"💰 Total Omzet: {format_rupiah(total_omzet)}",
+        "",
+        "🏆 *Barang Terlaris:*",
+    ]
+    for i, b in enumerate(terlaris, 1):
+        lines.append(f"{i}. {b['nama_produk']} - {b['total_terjual']} pcs")
+
+    lines.append("\n👑 *Customer Terbanyak Belanja:*")
+    for i, c in enumerate(top_customer, 1):
+        lines.append(f"{i}. {c['nama']} - {c['total_order']} pesanan")
+
+    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+
+
