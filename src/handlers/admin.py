@@ -210,4 +210,139 @@ async def konfirmasi_pembayaran_callback(update: Update, ctx: ContextTypes.DEFAU
                 except Exception:
                     pass
 
+# ─── KELOLA PRODUK ────────────────────────────────────────────────────────────
+
+async def kelola_produk(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        return
+    products = get_all_products_admin()
+    lines = ["📦 *Daftar Produk:*\n"]
+    for p in products:
+        lines.append(f"• [{p['id']}] {p['nama']} - {format_rupiah(p['harga'])} (Stok: {p['stok']})")
+    lines.append("\n/addprod - Tambah produk baru")
+    lines.append("/editprod <ID> - Edit produk")
+    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+
+async def addprod_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        return
+    cats = get_categories()
+    cat_list = "\n".join([f"{c['id']}. {c['nama']}" for c in cats])
+    ctx.user_data["addprod_step"] = "nama"
+    ctx.user_data["addprod"] = {}
+    await update.message.reply_text(f"📦 *Tambah Produk Baru*\n\nMasukkan nama produk:", parse_mode="Markdown")
+
+async def addprod_input(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    step = ctx.user_data.get("addprod_step")
+    if not step:
+        return False
+    text = update.message.text.strip()
+    p = ctx.user_data.setdefault("addprod", {})
+
+    if step == "nama":
+        p["nama"] = text
+        ctx.user_data["addprod_step"] = "harga"
+        await update.message.reply_text("💰 Masukkan harga (angka saja):")
+    elif step == "harga":
+        try:
+            p["harga"] = float(text.replace(".", "").replace(",", ""))
+        except ValueError:
+            await update.message.reply_text("❌ Harga tidak valid.")
+            return True
+        ctx.user_data["addprod_step"] = "stok"
+        await update.message.reply_text("📦 Masukkan stok awal:")
+    elif step == "stok":
+        try:
+            p["stok"] = int(text)
+        except ValueError:
+            await update.message.reply_text("❌ Stok tidak valid.")
+            return True
+        ctx.user_data["addprod_step"] = "deskripsi"
+        await update.message.reply_text("📝 Masukkan deskripsi produk:")
+    elif step == "deskripsi":
+        p["deskripsi"] = text
+        cats = get_categories()
+        cat_list = "\n".join([f"{c['id']}. {c['nama']}" for c in cats])
+        ctx.user_data["addprod_step"] = "kategori"
+        await update.message.reply_text(f"📂 Pilih kategori (ketik nomor):\n{cat_list}")
+    elif step == "kategori":
+        try:
+            p["category_id"] = int(text)
+        except ValueError:
+            await update.message.reply_text("❌ Nomor kategori tidak valid.")
+            return True
+        ctx.user_data["addprod_step"] = "foto"
+        await update.message.reply_text("🖼️ Kirim foto produk (atau ketik '-' untuk skip):")
+    elif step == "foto":
+        foto = None
+        if update.message.photo:
+            foto = update.message.photo[-1].file_id
+        p["foto"] = foto
+        pid = add_product(p["nama"], p["harga"], p["stok"], p["deskripsi"], foto, p["category_id"])
+        ctx.user_data["addprod_step"] = None
+        await update.message.reply_text(f"✅ Produk *{p['nama']}* berhasil ditambahkan! (ID: {pid})", parse_mode="Markdown", reply_markup=admin_menu())
+    return True
+
+async def editprod_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        return
+    if not ctx.args:
+        await update.message.reply_text("Gunakan: /editprod <ID_PRODUK>")
+        return
+    product_id = int(ctx.args[0])
+    p = get_product(product_id)
+    if not p:
+        await update.message.reply_text("❌ Produk tidak ditemukan.")
+        return
+    await update.message.reply_text(
+        f"✏️ *Edit Produk: {p['nama']}*\nHarga: {format_rupiah(p['harga'])}\nStok: {p['stok']}",
+        parse_mode="Markdown",
+        reply_markup=produk_admin_keyboard(product_id)
+    )
+
+async def editprod_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    if not is_admin(query.from_user.id):
+        return
+    data = query.data
+    if data.startswith("editprod_"):
+        parts = data.split("_")
+        field = parts[1]
+        product_id = int(parts[2])
+        ctx.user_data["editprod_field"] = field
+        ctx.user_data["editprod_id"] = product_id
+        ctx.user_data["editprod_step"] = "input"
+        prompts = {"harga": "💰 Masukkan harga baru:", "stok": "📦 Masukkan stok baru:", "deskripsi": "📝 Masukkan deskripsi baru:", "foto": "🖼️ Kirim foto baru:"}
+        await query.edit_message_text(prompts.get(field, "Masukkan nilai baru:"))
+    elif data.startswith("delprod_"):
+        product_id = int(data.split("_")[1])
+        delete_product(product_id)
+        await query.edit_message_text("🗑️ Produk berhasil dihapus.")
+
+async def editprod_input(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if ctx.user_data.get("editprod_step") != "input":
+        return False
+    field = ctx.user_data.get("editprod_field")
+    product_id = ctx.user_data.get("editprod_id")
+    if field == "foto":
+        if update.message.photo:
+            val = update.message.photo[-1].file_id
+            update_product(product_id, foto=val)
+            await update.message.reply_text("✅ Foto produk diperbarui.", reply_markup=admin_menu())
+        else:
+            await update.message.reply_text("❌ Harap kirim foto.")
+            return True
+    else:
+        text = update.message.text.strip()
+        if field == "harga":
+            update_product(product_id, harga=float(text.replace(".", "").replace(",", "")))
+        elif field == "stok":
+            update_product(product_id, stok=int(text))
+        elif field == "deskripsi":
+            update_product(product_id, deskripsi=text)
+        await update.message.reply_text(f"✅ {field.capitalize()} produk diperbarui.", reply_markup=admin_menu())
+    ctx.user_data["editprod_step"] = None
+    return True
+
 
