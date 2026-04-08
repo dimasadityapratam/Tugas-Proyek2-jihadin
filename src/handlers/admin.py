@@ -455,4 +455,73 @@ async def broadcast_input(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     )
     return True
 
+# ─── PENGATURAN TOKO ──────────────────────────────────────────────────────────
+
+async def pengaturan_toko(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        return
+    settings_info = [
+        ("nama_toko", "Nama Toko"),
+        ("alamat_toko", "Alamat"),
+        ("no_hp_toko", "No HP"),
+        ("jam_buka", "Jam Buka"),
+        ("ongkir", "Ongkir"),
+        ("min_order", "Min Order"),
+        ("gratis_ongkir_min", "Gratis Ongkir Min"),
+        ("admin_pin", "PIN Admin"),
+    ]
+    lines = ["⚙️ *Pengaturan Toko:*\n"]
+    for key, label in settings_info:
+        val = get_setting(key) or "-"
+        if key == "admin_pin":
+            val = "****"
+        lines.append(f"• {label}: {val}")
+    lines += [
+        "",
+        "Perintah pengaturan:",
+        "/set nama_toko <nilai>",
+        "/set alamat_toko <nilai>",
+        "/set no_hp_toko <nilai>",
+        "/set jam_buka <nilai>",
+        "/set ongkir <nilai>",
+        "/set min_order <nilai>",
+        "/set gratis_ongkir_min <nilai>",
+        "/set admin_pin <nilai>",
+        "/setqris - Upload foto QRIS baru",
+    ]
+    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+
+async def set_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        return
+    if not ctx.args or len(ctx.args) < 2:
+        await update.message.reply_text("Gunakan: /set <key> <nilai>")
+        return
+    key = ctx.args[0]
+    value = " ".join(ctx.args[1:])
+    allowed_keys = ["nama_toko", "alamat_toko", "no_hp_toko", "jam_buka", "ongkir", "min_order", "gratis_ongkir_min", "admin_pin"]
+    if key not in allowed_keys:
+        await update.message.reply_text(f"❌ Key tidak valid. Pilihan: {', '.join(allowed_keys)}")
+        return
+    set_setting(key, value)
+    await update.message.reply_text(f"✅ *{key}* diperbarui menjadi: {value if key != 'admin_pin' else '****'}", parse_mode="Markdown")
+
+async def setqris_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        return
+    ctx.user_data["setqris_step"] = "foto"
+    await update.message.reply_text("🖼️ Kirim foto QRIS baru:")
+
+async def setqris_input(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if ctx.user_data.get("setqris_step") != "foto":
+        return False
+    if not update.message.photo:
+        await update.message.reply_text("❌ Harap kirim foto QRIS.")
+        return True
+    foto = update.message.photo[-1].file_id
+    set_setting("qris_foto", foto)
+    ctx.user_data["setqris_step"] = None
+    await update.message.reply_text("✅ Foto QRIS berhasil diperbarui.", reply_markup=admin_menu())
+    return True
+
 
