@@ -419,4 +419,40 @@ async def laporan_penjualan(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
+# ─── BROADCAST ────────────────────────────────────────────────────────────────
+
+async def broadcast_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        return
+    ctx.user_data["broadcast_step"] = "input"
+    await update.message.reply_text(
+        "📢 *Broadcast ke Semua Customer*\n\nKetik pesan yang ingin dikirim:",
+        parse_mode="Markdown"
+    )
+
+async def broadcast_input(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if ctx.user_data.get("broadcast_step") != "input":
+        return False
+    text = update.message.text.strip()
+    ctx.user_data["broadcast_step"] = None
+    users = get_all_users()
+    success = 0
+    fail = 0
+    nama_toko = get_setting("nama_toko") or "Toko"
+    for u in users:
+        try:
+            await ctx.bot.send_message(
+                u["user_id"],
+                f"📢 *Pesan dari {nama_toko}:*\n\n{text}",
+                parse_mode="Markdown"
+            )
+            success += 1
+        except Exception:
+            fail += 1
+    await update.message.reply_text(
+        f"✅ Broadcast selesai.\nTerkirim: {success} | Gagal: {fail}",
+        reply_markup=admin_menu()
+    )
+    return True
+
 
