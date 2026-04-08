@@ -381,3 +381,69 @@ def update_order_status(order_id, status):
     conn.execute("UPDATE orders SET status=? WHERE order_id=?", (status, order_id))
     conn.commit()
     conn.close()
+
+# ─── PAYMENTS ────────────────────────────────────────────────────────────────
+
+def create_payment(order_id, metode):
+    conn = get_conn()
+    conn.execute("INSERT OR IGNORE INTO payments (order_id, metode) VALUES (?,?)", (order_id, metode))
+    conn.commit()
+    conn.close()
+
+def update_payment(order_id, status, bukti_foto=None):
+    conn = get_conn()
+    if bukti_foto:
+        conn.execute("UPDATE payments SET status=?, bukti_foto=? WHERE order_id=?", (status, bukti_foto, order_id))
+    else:
+        conn.execute("UPDATE payments SET status=?, confirmed_at=datetime('now','localtime') WHERE order_id=?", (status, order_id))
+    conn.commit()
+    conn.close()
+
+def get_payment(order_id):
+    conn = get_conn()
+    row = conn.execute("SELECT * FROM payments WHERE order_id=?", (order_id,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def get_pending_payments():
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT p.*, o.user_id, o.nama, o.total FROM payments p JOIN orders o ON p.order_id=o.order_id WHERE p.status='Menunggu Konfirmasi'"
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+# ─── COMPLAINTS ──────────────────────────────────────────────────────────────
+
+def create_complaint(order_id, user_id, jenis, deskripsi, foto=None):
+    conn = get_conn()
+    conn.execute(
+        "INSERT INTO complaints (order_id,user_id,jenis,deskripsi,foto) VALUES (?,?,?,?,?)",
+        (order_id, user_id, jenis, deskripsi, foto)
+    )
+    conn.commit()
+    conn.close()
+
+def get_complaints(status=None):
+    conn = get_conn()
+    if status:
+        rows = conn.execute("SELECT * FROM complaints WHERE status=? ORDER BY created_at DESC", (status,)).fetchall()
+    else:
+        rows = conn.execute("SELECT * FROM complaints ORDER BY created_at DESC").fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def get_complaint(complaint_id):
+    conn = get_conn()
+    row = conn.execute("SELECT * FROM complaints WHERE id=?", (complaint_id,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def update_complaint(complaint_id, status, resolusi=None):
+    conn = get_conn()
+    if resolusi:
+        conn.execute("UPDATE complaints SET status=?, resolusi=? WHERE id=?", (status, resolusi, complaint_id))
+    else:
+        conn.execute("UPDATE complaints SET status=? WHERE id=?", (status, complaint_id))
+    conn.commit()
+    conn.close()
