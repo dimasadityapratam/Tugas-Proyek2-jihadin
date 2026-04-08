@@ -23,3 +23,16 @@ def main_menu():
         [KeyboardButton("🎁 Promo"), KeyboardButton("📞 Hubungi Admin")],
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False, is_persistent=True)
+
+# ─── ADMIN MENU ───────────────────────────────────────────────────────────────
+
+def admin_menu():
+    keyboard = [
+        [KeyboardButton("📥 Pesanan Masuk"), KeyboardButton("🔄 Update Status")],
+        [KeyboardButton("📦 Kelola Produk"), KeyboardButton("📊 Kelola Stok")],
+        [KeyboardButton("💰 Validasi Pembayaran"), KeyboardButton("👥 Data Customer")],
+        [KeyboardButton("📈 Laporan Penjualan"), KeyboardButton("📢 Broadcast")],
+        [KeyboardButton("⚙️ Pengaturan Toko"), KeyboardButton("🚨 Laporan Komplain")],
+        [KeyboardButton("🚪 Keluar Admin")],
+    ]
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False, is_persistent=True)
