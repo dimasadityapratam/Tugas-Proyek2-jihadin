@@ -36,3 +36,47 @@ def admin_menu():
         [KeyboardButton("🚪 Keluar Admin")],
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False, is_persistent=True)
+
+# ─── INLINE KEYBOARDS ─────────────────────────────────────────────────────────
+
+def kategori_keyboard(categories):
+    buttons = []
+    row = []
+    for i, cat in enumerate(categories):
+        row.append(InlineKeyboardButton(cat["nama"], callback_data=f"cat_{cat['id']}"))
+        if len(row) == 2:
+            buttons.append(row)
+            row = []
+    if row:
+        buttons.append(row)
+    buttons.append([InlineKeyboardButton("🔙 Kembali", callback_data="back_main")])
+    return InlineKeyboardMarkup(buttons)
+
+def produk_keyboard(products, page=0, per_page=5):
+    start = page * per_page
+    end = start + per_page
+    chunk = products[start:end]
+    buttons = []
+    for p in chunk:
+        stok_info = f"(Stok: {p['stok']})" if p['stok'] > 0 else "(Habis)"
+        buttons.append([InlineKeyboardButton(f"{p['nama']} - Rp{p['harga']:,.0f} {stok_info}", callback_data=f"prod_{p['id']}")])
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton("◀️ Prev", callback_data=f"page_{page-1}"))
+    if end < len(products):
+        nav.append(InlineKeyboardButton("Next ▶️", callback_data=f"page_{page+1}"))
+    if nav:
+        buttons.append(nav)
+    buttons.append([InlineKeyboardButton("🔙 Kembali ke Kategori", callback_data="back_katalog")])
+    return InlineKeyboardMarkup(buttons)
+
+def produk_detail_keyboard(product_id, stok):
+    buttons = []
+    if stok > 0:
+        buttons.append([
+            InlineKeyboardButton("➕ Tambah ke Keranjang", callback_data=f"addcart_{product_id}_1")
+        ])
+    buttons.append([InlineKeyboardButton("🔙 Kembali", callback_data="back_produk")])
+    return InlineKeyboardMarkup(buttons)
+
+
