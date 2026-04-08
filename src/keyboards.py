@@ -101,4 +101,22 @@ def metode_pembayaran_keyboard():
         [InlineKeyboardButton("❌ Batal", callback_data="cancel_checkout")],
     ])
 
+def konfirmasi_order_keyboard(order_id):
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("✅ Konfirmasi Pesanan", callback_data=f"confirm_order_{order_id}")],
+        [InlineKeyboardButton("🚨 Laporkan Masalah", callback_data=f"complaint_{order_id}")],
+    ])
+
+def jenis_komplain_keyboard(order_id):
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📦 Barang Kurang", callback_data=f"komp_{order_id}_kurang")],
+        [InlineKeyboardButton("🔄 Barang Salah", callback_data=f"komp_{order_id}_salah")],
+        [InlineKeyboardButton("💔 Barang Rusak", callback_data=f"komp_{order_id}_rusak")],
+        [InlineKeyboardButton("❓ Lainnya", callback_data=f"komp_{order_id}_lainnya")],
+    ])
+
+def sudah_bayar_keyboard(order_id):
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("✅ Sudah Bayar (Upload Bukti)", callback_data=f"sudah_bayar_{order_id}")],
+    ])
 
