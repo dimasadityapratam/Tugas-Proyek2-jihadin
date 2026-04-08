@@ -345,4 +345,36 @@ async def editprod_input(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ctx.user_data["editprod_step"] = None
     return True
 
+# ─── KELOLA STOK ──────────────────────────────────────────────────────────────
+
+async def kelola_stok(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        return
+    products = get_all_products_admin()
+    lines = ["📊 *Stok Produk:*\n"]
+    for p in products:
+        status = "⚠️" if p["stok"] <= 5 else "✅"
+        lines.append(f"{status} [{p['id']}] {p['nama']}: {p['stok']} pcs")
+    lines.append("\n/setstok <ID> <JUMLAH> - Update stok")
+    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+
+async def setstok_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        return
+    if not ctx.args or len(ctx.args) < 2:
+        await update.message.reply_text("Gunakan: /setstok <ID_PRODUK> <JUMLAH>")
+        return
+    try:
+        product_id = int(ctx.args[0])
+        jumlah = int(ctx.args[1])
+    except ValueError:
+        await update.message.reply_text("❌ Format salah.")
+        return
+    p = get_product(product_id)
+    if not p:
+        await update.message.reply_text("❌ Produk tidak ditemukan.")
+        return
+    update_product(product_id, stok=jumlah)
+    await update.message.reply_text(f"✅ Stok *{p['nama']}* diperbarui menjadi {jumlah} pcs.", parse_mode="Markdown")
+
 
