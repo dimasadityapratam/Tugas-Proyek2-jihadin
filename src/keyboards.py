@@ -120,3 +120,26 @@ def sudah_bayar_keyboard(order_id):
         [InlineKeyboardButton("✅ Sudah Bayar (Upload Bukti)", callback_data=f"sudah_bayar_{order_id}")],
     ])
 
+# ─── ADMIN INLINE ─────────────────────────────────────────────────────────────
+
+def approve_order_keyboard(order_id):
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("✅ Setujui", callback_data=f"approve_{order_id}"),
+            InlineKeyboardButton("❌ Tolak", callback_data=f"reject_{order_id}"),
+        ]
+    ])
+
+def status_update_keyboard(order_id, metode):
+    statuses_delivery = [
+        "Menunggu Pembayaran", "Pesanan Disiapkan", "Pesanan Diantar",
+        "Pesanan Diterima", "Selesai", "Dibatalkan"
+    ]
+    statuses_pickup = [
+        "Menunggu Pembayaran", "Pesanan Disiapkan", "Pesanan Siap Diambil",
+        "Pesanan Diambil", "Selesai", "Dibatalkan"
+    ]
+    statuses = statuses_delivery if metode == "Delivery" else statuses_pickup
+    buttons = [[InlineKeyboardButton(s, callback_data=f"setstatus_{order_id}_{s}")] for s in statuses]
+    return InlineKeyboardMarkup(buttons)
+
