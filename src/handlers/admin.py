@@ -147,3 +147,67 @@ async def setstatus_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                 await ctx.bot.send_message(order["user_id"], msg, parse_mode="Markdown", reply_markup=kb)
             except Exception:
                 pass
+
+# ─── VALIDASI PEMBAYARAN ──────────────────────────────────────────────────────
+
+async def validasi_pembayaran(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        return
+    pending = get_pending_payments()
+    if not pending:
+        await update.message.reply_text("💰 Tidak ada pembayaran yang menunggu konfirmasi.", reply_markup=admin_menu())
+        return
+    for p in pending:
+        order = get_order(p["order_id"])
+        items = get_order_items(p["order_id"])
+        detail = format_order_detail(order, items)
+        if p.get("bukti_foto"):
+            await update.message.reply_photo(
+                photo=p["bukti_foto"],
+                caption=f"💳 *Bukti Pembayaran QRIS*\n\n{detail}",
+                parse_mode="Markdown",
+                reply_markup=konfirmasi_pembayaran_keyboard(p["order_id"])
+            )
+        else:
+            await update.message.reply_text(
+                f"💳 *Pembayaran Menunggu*\n\n{detail}",
+                parse_mode="Markdown",
+                reply_markup=konfirmasi_pembayaran_keyboard(p["order_id"])
+            )
+
+async def konfirmasi_pembayaran_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    if not is_admin(query.from_user.id):
+        return
+    data = query.data
+    if data.startswith("konfpay_"):
+        parts = data.split("_")
+        order_id = parts[1]
+        action = parts[2]
+        order = get_order(order_id)
+        if action == "lunas":
+            update_payment(order_id, "Lunas")
+            update_order_status(order_id, "Pesanan Disiapkan")
+            try:
+                await query.edit_message_caption(f"✅ Pembayaran `{order_id}` *dikonfirmasi lunas*.", parse_mode="Markdown")
+            except Exception:
+                await query.edit_message_text(f"✅ Pembayaran `{order_id}` *dikonfirmasi lunas*.", parse_mode="Markdown")
+            if order:
+                try:
+                    await ctx.bot.send_message(order["user_id"], f"✅ Pembayaran kamu untuk `{order_id}` telah *dikonfirmasi*!\nPesanan sedang disiapkan.", parse_mode="Markdown")
+                except Exception:
+                    pass
+        elif action == "tolak":
+            update_payment(order_id, "Ditolak")
+            try:
+                await query.edit_message_caption(f"❌ Pembayaran `{order_id}` *ditolak*.", parse_mode="Markdown")
+            except Exception:
+                await query.edit_message_text(f"❌ Pembayaran `{order_id}` *ditolak*.", parse_mode="Markdown")
+            if order:
+                try:
+                    await ctx.bot.send_message(order["user_id"], f"❌ Bukti pembayaran `{order_id}` ditolak. Silakan upload ulang dengan /bayar {order_id}", parse_mode="Markdown")
+                except Exception:
+                    pass
+
+
