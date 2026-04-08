@@ -524,4 +524,70 @@ async def setqris_input(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("✅ Foto QRIS berhasil diperbarui.", reply_markup=admin_menu())
     return True
 
+# ─── LAPORAN KOMPLAIN ─────────────────────────────────────────────────────────
+
+async def laporan_komplain(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        return
+    complaints = get_complaints()
+    if not complaints:
+        await update.message.reply_text("🚨 Tidak ada komplain.", reply_markup=admin_menu())
+        return
+    for c in complaints[:10]:
+        status_icon = "⏳" if c["status"] == "Menunggu" else "✅"
+        text = (
+            f"🚨 *Komplain #{c['id']}*\n"
+            f"Order: `{c['order_id']}`\n"
+            f"Jenis: {c['jenis']}\n"
+            f"Deskripsi: {c['deskripsi']}\n"
+            f"Status: {status_icon} {c['status']}"
+        )
+        if c.get("resolusi"):
+            text += f"\nResolusi: {c['resolusi']}"
+        kb = resolusi_komplain_keyboard(c["id"]) if c["status"] == "Menunggu" else None
+        if c.get("foto"):
+            await update.message.reply_photo(photo=c["foto"], caption=text, parse_mode="Markdown", reply_markup=kb)
+        else:
+            await update.message.reply_text(text, parse_mode="Markdown", reply_markup=kb)
+
+async def resolusi_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    if not is_admin(query.from_user.id):
+        return
+    data = query.data
+    if data.startswith("resolusi_"):
+        parts = data.split("_")
+        complaint_id = int(parts[1])
+        action = parts[2]
+        resolusi_map = {
+            "kirim": "Barang kekurangan akan dikirim",
+            "tukar": "Barang akan ditukar",
+            "refund": "Refund akan diproses",
+            "selesai": "Komplain diselesaikan",
+        }
+        resolusi_text = resolusi_map.get(action, "Diselesaikan")
+        update_complaint(complaint_id, "Selesai", resolusi=resolusi_text)
+        complaint = get_complaint(complaint_id)
+        # Edit pesan (bisa foto atau teks)
+        try:
+            await query.edit_message_caption(
+                f"✅ Komplain #{complaint_id} diselesaikan.\nResolusi: {resolusi_text}",
+                parse_mode="Markdown"
+            )
+        except Exception:
+            await query.edit_message_text(
+                f"✅ Komplain #{complaint_id} diselesaikan.\nResolusi: {resolusi_text}",
+                parse_mode="Markdown"
+            )
+        # Notif customer
+        if complaint:
+            try:
+                await ctx.bot.send_message(
+                    complaint["user_id"],
+                    f"✅ Komplain kamu untuk pesanan `{complaint['order_id']}` telah ditangani.\nResolusi: {resolusi_text}",
+                    parse_mode="Markdown"
+                )
+            except Exception:
+                pass
 
