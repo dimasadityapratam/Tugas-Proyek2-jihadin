@@ -377,4 +377,17 @@ async def setstok_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     update_product(product_id, stok=jumlah)
     await update.message.reply_text(f"✅ Stok *{p['nama']}* diperbarui menjadi {jumlah} pcs.", parse_mode="Markdown")
 
+# ─── DATA CUSTOMER ────────────────────────────────────────────────────────────
+
+async def data_customer(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        return
+    users = get_all_users()
+    if not users:
+        await update.message.reply_text("👥 Belum ada customer.", reply_markup=admin_menu())
+        return
+    lines = [f"👥 *Data Customer ({len(users)} orang):*\n"]
+    for u in users[:20]:
+        lines.append(f"• {u['nama'] or '-'} | {u['no_hp'] or '-'} | @{u['username'] or '-'}")
+    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
