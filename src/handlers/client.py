@@ -536,3 +536,17 @@ async def complaint_input(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             except Exception:
                 pass
 
+# ─── PROMO ────────────────────────────────────────────────────────────────────
+
+async def show_promo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    gratis_min = get_gratis_ongkir_min()
+    min_order = get_min_order()
+    lines = ["🎁 *Promo & Info Toko:*\n"]
+    if gratis_min > 0:
+        lines.append(f"🚚 Gratis ongkir untuk belanja min. {format_rupiah(gratis_min)}")
+    if min_order > 0:
+        lines.append(f"🛒 Minimum order: {format_rupiah(min_order)}")
+    lines.append(f"\n📞 Hubungi kami: {get_setting('no_hp_toko') or '-'}")
+    lines.append(f"📍 Alamat: {get_setting('alamat_toko') or '-'}")
+    await update.message.reply_text("\n".join(lines), parse_mode="Markdown", reply_markup=main_menu())
+
