@@ -30,3 +30,99 @@ async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown",
         reply_markup=main_menu()
     )
+
+# ─── KATALOG ──────────────────────────────────────────────────────────────────
+
+async def show_katalog(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    cats = get_categories()
+    await update.message.reply_text(
+        "🛒 *Pilih Kategori Produk:*",
+        parse_mode="Markdown",
+        reply_markup=kategori_keyboard(cats)
+    )
+
+async def katalog_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+
+    if data.startswith("cat_"):
+        cat_id = int(data.split("_")[1])
+        products = get_products(category_id=cat_id)
+        ctx.user_data["current_products"] = products
+        ctx.user_data["current_cat_id"] = cat_id
+        if not products:
+            await query.edit_message_text("😔 Belum ada produk di kategori ini.")
+            return
+        await query.edit_message_text(
+            "📦 *Pilih Produk:*",
+            parse_mode="Markdown",
+            reply_markup=produk_keyboard(products, page=0)
+        )
+
+    elif data.startswith("page_"):
+        page = int(data.split("_")[1])
+        products = ctx.user_data.get("current_products", [])
+        await query.edit_message_reply_markup(reply_markup=produk_keyboard(products, page=page))
+
+    elif data.startswith("prod_"):
+        product_id = int(data.split("_")[1])
+        p = get_product(product_id)
+        ctx.user_data["last_product_id"] = product_id
+        if not p:
+            await query.edit_message_text("Produk tidak ditemukan.")
+            return
+        text = (
+            f"🏷️ *{p['nama']}*\n"
+            f"📂 Kategori: {p['kategori']}\n"
+            f"💰 Harga: {format_rupiah(p['harga'])}\n"
+            f"📦 Stok: {p['stok']}\n\n"
+            f"📝 {p['deskripsi'] or 'Tidak ada deskripsi.'}"
+        )
+        kb = produk_detail_keyboard(product_id, p["stok"])
+        if p.get("foto"):
+            try:
+                await query.message.reply_photo(photo=p["foto"], caption=text, parse_mode="Markdown", reply_markup=kb)
+                await query.delete_message()
+            except Exception:
+                await query.edit_message_text(text, parse_mode="Markdown", reply_markup=kb)
+        else:
+            await query.edit_message_text(text, parse_mode="Markdown", reply_markup=kb)
+
+    elif data.startswith("addcart_"):
+        parts = data.split("_")
+        product_id = int(parts[1])
+        jumlah = int(parts[2])
+        p = get_product(product_id)
+        if not p or p["stok"] < jumlah:
+            await query.answer("❌ Stok tidak cukup!", show_alert=True)
+            return
+        add_to_cart(query.from_user.id, product_id, jumlah)
+        await query.answer(f"✅ {p['nama']} ditambahkan ke keranjang!", show_alert=True)
+
+    elif data == "back_katalog":
+        cats = get_categories()
+        await query.edit_message_text(
+            "🛒 *Pilih Kategori Produk:*",
+            parse_mode="Markdown",
+            reply_markup=kategori_keyboard(cats)
+        )
+
+    elif data == "back_produk":
+        products = ctx.user_data.get("current_products", [])
+        if products:
+            await query.edit_message_text(
+                "📦 *Pilih Produk:*",
+                parse_mode="Markdown",
+                reply_markup=produk_keyboard(products, page=0)
+            )
+        else:
+            cats = get_categories()
+            await query.edit_message_text(
+                "🛒 *Pilih Kategori Produk:*",
+                parse_mode="Markdown",
+                reply_markup=kategori_keyboard(cats)
+            )
+
+    elif data == "back_main":
+        await query.edit_message_text("Kembali ke menu utama.")
