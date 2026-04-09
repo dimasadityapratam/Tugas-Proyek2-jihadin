@@ -369,3 +369,90 @@ async def order_detail_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         kb = konfirmasi_order_keyboard(order_id)
     await update.message.reply_text(detail, parse_mode="Markdown", reply_markup=kb)
 
+# ─── PEMBAYARAN ───────────────────────────────────────────────────────────────
+
+async def pembayaran_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    orders = get_user_orders(user_id)
+    pending = [o for o in orders if o["status"] == "Menunggu Pembayaran" and o["metode_pembayaran"] == "QRIS"]
+    if not pending:
+        await update.message.reply_text("💳 Tidak ada tagihan pembayaran QRIS yang menunggu.", reply_markup=main_menu())
+        return
+    lines = ["💳 *Tagihan Pembayaran QRIS:*\n"]
+    for o in pending:
+        lines.append(f"• `{o['order_id']}` - {format_rupiah(o['total'])}")
+    lines.append("\nKetik /bayar <ID_PESANAN> untuk upload bukti bayar.")
+    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+
+async def bayar_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not ctx.args:
+        await update.message.reply_text("Gunakan: /bayar <ID_PESANAN>")
+        return
+    order_id = ctx.args[0]
+    order = get_order(order_id)
+    if not order or order["user_id"] != update.effective_user.id:
+        await update.message.reply_text("❌ Pesanan tidak ditemukan.")
+        return
+    if order["status"] != "Menunggu Pembayaran":
+        await update.message.reply_text(f"Status pesanan: {order['status']}")
+        return
+    qris_foto = get_setting("qris_foto")
+    if qris_foto:
+        await update.message.reply_photo(
+            photo=qris_foto,
+            caption=f"📱 *Scan QRIS untuk membayar*\n\nTotal: *{format_rupiah(order['total'])}*\n\nSetelah bayar, klik tombol di bawah.",
+            parse_mode="Markdown",
+            reply_markup=sudah_bayar_keyboard(order_id)
+        )
+    else:
+        await update.message.reply_text(
+            f"💳 Total pembayaran: *{format_rupiah(order['total'])}*\n\nKlik tombol setelah bayar:",
+            parse_mode="Markdown",
+            reply_markup=sudah_bayar_keyboard(order_id)
+        )
+
+async def pembayaran_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+
+    if data.startswith("sudah_bayar_"):
+        order_id = data.replace("sudah_bayar_", "")
+        ctx.user_data["upload_bukti_order"] = order_id
+        await query.edit_message_text(
+            "📸 Silakan kirim foto bukti pembayaran QRIS kamu:"
+        )
+
+async def terima_bukti_bayar(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    order_id = ctx.user_data.get("upload_bukti_order")
+    if not order_id:
+        return
+    if not update.message.photo:
+        await update.message.reply_text("❌ Harap kirim foto bukti pembayaran.")
+        return
+    foto = update.message.photo[-1].file_id
+    update_payment(order_id, "Menunggu Konfirmasi", bukti_foto=foto)
+    ctx.user_data["upload_bukti_order"] = None
+
+    order = get_order(order_id)
+    await update.message.reply_text(
+        f"✅ Bukti pembayaran untuk `{order_id}` telah dikirim.\nMenunggu konfirmasi admin.",
+        parse_mode="Markdown",
+        reply_markup=main_menu()
+    )
+    # Notif admin
+    admins = get_conn()
+    rows = admins.execute("SELECT user_id FROM admins").fetchall()
+    admins.close()
+    for row in rows:
+        try:
+            await ctx.bot.send_photo(
+                chat_id=row["user_id"],
+                photo=foto,
+                caption=f"💳 *Bukti Pembayaran QRIS*\n\nOrder: `{order_id}`\nNama: {order['nama']}\nTotal: {format_rupiah(order['total'])}",
+                parse_mode="Markdown",
+                reply_markup=konfirmasi_pembayaran_keyboard(order_id)
+            )
+        except Exception:
+            pass
+
