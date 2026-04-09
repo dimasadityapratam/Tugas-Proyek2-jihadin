@@ -126,3 +126,22 @@ async def katalog_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     elif data == "back_main":
         await query.edit_message_text("Kembali ke menu utama.")
+
+# ─── CARI BARANG ──────────────────────────────────────────────────────────────
+
+async def cari_barang(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    ctx.user_data["search_active"] = True
+    await update.message.reply_text("🔍 Ketik nama barang yang ingin dicari:")
+
+async def proses_cari(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    keyword = update.message.text.strip()
+    products = get_products(search=keyword)
+    if not products:
+        await update.message.reply_text(f"😔 Barang '{keyword}' tidak ditemukan.", reply_markup=main_menu())
+    else:
+        ctx.user_data["current_products"] = products
+        await update.message.reply_text(
+            f"🔍 Hasil pencarian '{keyword}':",
+            reply_markup=produk_keyboard(products, page=0)
+        )
+
