@@ -550,3 +550,13 @@ async def show_promo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     lines.append(f"📍 Alamat: {get_setting('alamat_toko') or '-'}")
     await update.message.reply_text("\n".join(lines), parse_mode="Markdown", reply_markup=main_menu())
 
+# ─── HUBUNGI ADMIN ────────────────────────────────────────────────────────────
+
+async def hubungi_admin(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    no_hp = get_setting("no_hp_toko") or "-"
+    nama_toko = get_setting("nama_toko") or "Toko"
+    await update.message.reply_text(
+        f"📞 *Hubungi {nama_toko}*\n\nNo HP/WA: {no_hp}\n\nAtau kirim pesan langsung ke admin melalui bot ini.",
+        parse_mode="Markdown",
+        reply_markup=main_menu()
+    )
