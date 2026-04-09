@@ -191,3 +191,151 @@ async def keranjang_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     elif data == "checkout":
         await query.edit_message_text("Lanjut ke checkout...")
         await _start_checkout(query.message, ctx, user_id)
+
+# ─── CHECKOUT ─────────────────────────────────────────────────────────────────
+
+async def checkout_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    cart = get_cart(user_id)
+    if not cart:
+        await update.message.reply_text("🧺 Keranjang kamu kosong.", reply_markup=main_menu())
+        return
+    await _start_checkout(update.message, ctx, user_id)
+
+async def _start_checkout(message, ctx, user_id):
+    user = get_user(user_id)
+    ctx.user_data["checkout"] = {}
+    if user and user.get("nama"):
+        ctx.user_data["checkout"]["nama"] = user["nama"]
+        ctx.user_data["checkout"]["no_hp"] = user.get("no_hp", "")
+        ctx.user_data["checkout"]["alamat"] = user.get("alamat", "")
+    await message.reply_text(
+        "📝 *Checkout*\n\nMasukkan nama penerima:",
+        parse_mode="Markdown"
+    )
+    ctx.user_data["checkout_step"] = "nama"
+
+async def checkout_input(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    step = ctx.user_data.get("checkout_step")
+    if not step:
+        return
+    text = update.message.text.strip() if update.message.text else ""
+    co = ctx.user_data.setdefault("checkout", {})
+
+    if step == "nama":
+        co["nama"] = text
+        ctx.user_data["checkout_step"] = "hp"
+        await update.message.reply_text("📱 Masukkan nomor HP:")
+    elif step == "hp":
+        co["no_hp"] = text
+        ctx.user_data["checkout_step"] = "alamat"
+        await update.message.reply_text("📍 Masukkan alamat lengkap:")
+    elif step == "alamat":
+        co["alamat"] = text
+        ctx.user_data["checkout_step"] = "catatan"
+        await update.message.reply_text("📝 Catatan tambahan (ketik '-' jika tidak ada):")
+    elif step == "catatan":
+        co["catatan"] = "" if text == "-" else text
+        ctx.user_data["checkout_step"] = None
+        await update.message.reply_text(
+            "🚚 *Pilih metode pengambilan:*",
+            parse_mode="Markdown",
+            reply_markup=metode_pengambilan_keyboard()
+        )
+
+async def checkout_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    data = query.data
+    co = ctx.user_data.get("checkout", {})
+
+    if data in ("pickup", "delivery"):
+        co["metode_pengambilan"] = "Pickup" if data == "pickup" else "Delivery"
+        ctx.user_data["checkout"] = co
+        await query.edit_message_text(
+            "💳 *Pilih metode pembayaran:*",
+            parse_mode="Markdown",
+            reply_markup=metode_pembayaran_keyboard()
+        )
+
+    elif data in ("pay_qris", "pay_cod"):
+        co["metode_pembayaran"] = "QRIS" if data == "pay_qris" else "COD"
+        cart = get_cart(user_id)
+        if not cart:
+            await query.edit_message_text("❌ Keranjang kosong.")
+            return
+
+        subtotal = sum(i["harga"] * i["jumlah"] for i in cart)
+        min_order = get_min_order()
+        if subtotal < min_order:
+            await query.edit_message_text(f"❌ Minimum order {format_rupiah(min_order)}.")
+            return
+
+        ongkir = 0
+        if co["metode_pengambilan"] == "Delivery":
+            gratis_min = get_gratis_ongkir_min()
+            ongkir = 0 if (gratis_min > 0 and subtotal >= gratis_min) else get_ongkir()
+
+        total = subtotal + ongkir
+        co["subtotal"] = subtotal
+        co["ongkir"] = ongkir
+        co["total"] = total
+
+        # Buat order
+        order_id = create_order(
+            user_id=user_id,
+            nama=co.get("nama", ""),
+            alamat=co.get("alamat", ""),
+            no_hp=co.get("no_hp", ""),
+            metode_pengambilan=co["metode_pengambilan"],
+            metode_pembayaran=co["metode_pembayaran"],
+            subtotal=subtotal,
+            ongkir=ongkir,
+            total=total,
+            catatan=co.get("catatan", "")
+        )
+        items = [{"product_id": i["product_id"], "nama": i["nama"], "harga": i["harga"], "jumlah": i["jumlah"]} for i in cart]
+        add_order_items(order_id, items)
+        create_payment(order_id, co["metode_pembayaran"])
+        clear_cart(user_id)
+
+        # Update profil user
+        update_user(user_id, nama=co.get("nama"), no_hp=co.get("no_hp"), alamat=co.get("alamat"))
+
+        order = get_order(order_id)
+        order_items_list = get_order_items(order_id)
+        detail = format_order_detail(order, order_items_list)
+
+        await query.edit_message_text(
+            f"✅ *Pesanan berhasil dibuat!*\n\n{detail}\n\n"
+            f"⏳ Menunggu persetujuan admin...",
+            parse_mode="Markdown"
+        )
+
+        # Notif ke semua admin
+        await _notify_admins_new_order(ctx, order_id, detail)
+        ctx.user_data["checkout"] = {}
+        ctx.user_data["checkout_step"] = None
+
+    elif data == "cancel_checkout":
+        ctx.user_data["checkout"] = {}
+        ctx.user_data["checkout_step"] = None
+        await query.edit_message_text("❌ Checkout dibatalkan.")
+
+async def _notify_admins_new_order(ctx, order_id, detail):
+    admins = get_conn()
+    rows = admins.execute("SELECT user_id FROM admins").fetchall()
+    admins.close()
+    order = get_order(order_id)
+    for row in rows:
+        try:
+            await ctx.bot.send_message(
+                chat_id=row["user_id"],
+                text=f"🔔 *PESANAN BARU!*\n\n{detail}",
+                parse_mode="Markdown",
+                reply_markup=approve_order_keyboard(order_id)
+            )
+        except Exception:
+            pass
+
