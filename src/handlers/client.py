@@ -145,3 +145,49 @@ async def proses_cari(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             reply_markup=produk_keyboard(products, page=0)
         )
 
+# ─── KERANJANG ────────────────────────────────────────────────────────────────
+
+async def show_keranjang(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    cart = get_cart(user_id)
+    if not cart:
+        await update.message.reply_text("🧺 Keranjang kamu kosong.", reply_markup=main_menu())
+        return
+    total = sum(i["harga"] * i["jumlah"] for i in cart)
+    lines = ["🧺 *Keranjang Belanja:*\n"]
+    for item in cart:
+        lines.append(f"• {item['nama']} x{item['jumlah']} = {format_rupiah(item['harga']*item['jumlah'])}")
+    lines.append(f"\n💰 *Total: {format_rupiah(total)}*")
+    await update.message.reply_text(
+        "\n".join(lines),
+        parse_mode="Markdown",
+        reply_markup=cart_keyboard(cart)
+    )
+
+async def keranjang_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    data = query.data
+
+    if data.startswith("delcart_"):
+        product_id = int(data.split("_")[1])
+        remove_from_cart(user_id, product_id)
+        cart = get_cart(user_id)
+        if not cart:
+            await query.edit_message_text("🧺 Keranjang kamu sekarang kosong.")
+            return
+        total = sum(i["harga"] * i["jumlah"] for i in cart)
+        lines = ["🧺 *Keranjang Belanja:*\n"]
+        for item in cart:
+            lines.append(f"• {item['nama']} x{item['jumlah']} = {format_rupiah(item['harga']*item['jumlah'])}")
+        lines.append(f"\n💰 *Total: {format_rupiah(total)}*")
+        await query.edit_message_text("\n".join(lines), parse_mode="Markdown", reply_markup=cart_keyboard(cart))
+
+    elif data == "clear_cart":
+        clear_cart(user_id)
+        await query.edit_message_text("🗑️ Keranjang telah dikosongkan.")
+
+    elif data == "checkout":
+        await query.edit_message_text("Lanjut ke checkout...")
+        await _start_checkout(query.message, ctx, user_id)
