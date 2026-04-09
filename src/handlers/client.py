@@ -456,3 +456,83 @@ async def terima_bukti_bayar(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         except Exception:
             pass
 
+# ─── KONFIRMASI & KOMPLAIN ────────────────────────────────────────────────────
+
+async def order_action_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+    user_id = query.from_user.id
+
+    if data.startswith("confirm_order_"):
+        order_id = data.replace("confirm_order_", "")
+        update_order_status(order_id, "Selesai")
+        await query.edit_message_text(f"🎉 Pesanan `{order_id}` telah dikonfirmasi selesai. Terima kasih!", parse_mode="Markdown")
+        # Notif admin
+        admins = get_conn()
+        rows = admins.execute("SELECT user_id FROM admins").fetchall()
+        admins.close()
+        for row in rows:
+            try:
+                await ctx.bot.send_message(row["user_id"], f"✅ Pesanan `{order_id}` dikonfirmasi selesai oleh customer.", parse_mode="Markdown")
+            except Exception:
+                pass
+
+    elif data.startswith("complaint_"):
+        order_id = data.replace("complaint_", "")
+        ctx.user_data["complaint_order_id"] = order_id
+        await query.edit_message_text(
+            "🚨 *Laporkan Masalah*\n\nPilih jenis masalah:",
+            parse_mode="Markdown",
+            reply_markup=jenis_komplain_keyboard(order_id)
+        )
+
+    elif data.startswith("komp_"):
+        parts = data.split("_")
+        order_id = parts[1]
+        jenis_map = {"kurang": "Barang Kurang", "salah": "Barang Salah", "rusak": "Barang Rusak", "lainnya": "Lainnya"}
+        jenis = jenis_map.get(parts[2], "Lainnya")
+        ctx.user_data["complaint_order_id"] = order_id
+        ctx.user_data["complaint_jenis"] = jenis
+        ctx.user_data["complaint_step"] = "desc"
+        await query.edit_message_text(f"📝 Jelaskan masalah kamu ({jenis}):")
+
+async def complaint_input(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    step = ctx.user_data.get("complaint_step")
+    if not step:
+        return
+    if step == "desc":
+        ctx.user_data["complaint_desc"] = update.message.text.strip()
+        ctx.user_data["complaint_step"] = "foto"
+        await update.message.reply_text("📸 Kirim foto bukti (atau ketik '-' jika tidak ada):")
+    elif step == "foto":
+        order_id = ctx.user_data.get("complaint_order_id")
+        jenis = ctx.user_data.get("complaint_jenis")
+        desc = ctx.user_data.get("complaint_desc")
+        foto = None
+        if update.message.photo:
+            foto = update.message.photo[-1].file_id
+        elif update.message.text != "-":
+            await update.message.reply_text("❌ Harap kirim foto atau ketik '-'.")
+            return
+        create_complaint(order_id, update.effective_user.id, jenis, desc, foto)
+        ctx.user_data["complaint_step"] = None
+        await update.message.reply_text(
+            f"✅ Komplain untuk pesanan `{order_id}` telah dikirim.\nAdmin akan segera menangani.",
+            parse_mode="Markdown",
+            reply_markup=main_menu()
+        )
+        # Notif admin
+        admins = get_conn()
+        rows = admins.execute("SELECT user_id FROM admins").fetchall()
+        admins.close()
+        for row in rows:
+            try:
+                msg = f"🚨 *KOMPLAIN BARU*\nOrder: `{order_id}`\nJenis: {jenis}\nDeskripsi: {desc}"
+                if foto:
+                    await ctx.bot.send_photo(row["user_id"], foto, caption=msg, parse_mode="Markdown")
+                else:
+                    await ctx.bot.send_message(row["user_id"], msg, parse_mode="Markdown")
+            except Exception:
+                pass
+
