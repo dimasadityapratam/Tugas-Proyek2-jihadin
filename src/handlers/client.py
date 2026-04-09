@@ -339,3 +339,33 @@ async def _notify_admins_new_order(ctx, order_id, detail):
         except Exception:
             pass
 
+# ─── PESANAN SAYA ─────────────────────────────────────────────────────────────
+
+async def pesanan_saya(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    orders = get_user_orders(user_id)
+    if not orders:
+        await update.message.reply_text("📦 Kamu belum punya pesanan.", reply_markup=main_menu())
+        return
+    lines = ["📦 *Pesanan Saya:*\n"]
+    for o in orders[:10]:
+        lines.append(f"• `{o['order_id']}` - {status_with_emoji(o['status'])} - {format_rupiah(o['total'])}")
+    lines.append("\nKetik /order <ID> untuk detail pesanan.")
+    await update.message.reply_text("\n".join(lines), parse_mode="Markdown", reply_markup=main_menu())
+
+async def order_detail_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not ctx.args:
+        await update.message.reply_text("Gunakan: /order <ID_PESANAN>")
+        return
+    order_id = ctx.args[0]
+    order = get_order(order_id)
+    if not order or order["user_id"] != update.effective_user.id:
+        await update.message.reply_text("❌ Pesanan tidak ditemukan.")
+        return
+    items = get_order_items(order_id)
+    detail = format_order_detail(order, items)
+    kb = None
+    if order["status"] in ("Pesanan Diterima", "Pesanan Diambil"):
+        kb = konfirmasi_order_keyboard(order_id)
+    await update.message.reply_text(detail, parse_mode="Markdown", reply_markup=kb)
+
