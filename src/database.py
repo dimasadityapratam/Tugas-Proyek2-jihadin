@@ -127,15 +127,17 @@ def init_db():
         c.execute("INSERT OR IGNORE INTO categories (nama) VALUES (?)", (cat,))
 
     # Seed settings default
-    from config import ONGKIR_DEFAULT, MIN_ORDER_DEFAULT, JAM_BUKA, NAMA_TOKO, ALAMAT_TOKO, NO_HP_TOKO, ADMIN_PIN
+    import os
+    from dotenv import load_dotenv
+    load_dotenv()
     defaults = {
-        "ongkir": str(ONGKIR_DEFAULT),
-        "min_order": str(MIN_ORDER_DEFAULT),
-        "jam_buka": JAM_BUKA,
-        "nama_toko": NAMA_TOKO,
-        "alamat_toko": ALAMAT_TOKO,
-        "no_hp_toko": NO_HP_TOKO,
-        "admin_pin": ADMIN_PIN,
+        "ongkir": os.getenv("ONGKIR_DEFAULT", "10000"),
+        "min_order": os.getenv("MIN_ORDER_DEFAULT", "0"),
+        "jam_buka": os.getenv("JAM_BUKA", "08:00 - 21:00"),
+        "nama_toko": os.getenv("NAMA_TOKO", "Toko Berkah Jaya"),
+        "alamat_toko": os.getenv("ALAMAT_TOKO", "Jl. Contoh No. 1, Kota Anda"),
+        "no_hp_toko": os.getenv("NO_HP_TOKO", "08123456789"),
+        "admin_pin": os.getenv("ADMIN_PIN", "1234"),
         "gratis_ongkir_min": "0",
         "qris_foto": "",
     }
