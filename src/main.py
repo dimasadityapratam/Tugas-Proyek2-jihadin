@@ -114,7 +114,7 @@ async def message_router(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         "👥 Data Customer": data_customer,
         "📈 Laporan Penjualan": laporan_penjualan,
         "📢 Broadcast": broadcast_menu,
-        "⚙ Pengaturan Toko": pengaturan_toko,
+        "⚙️ Pengaturan Toko": pengaturan_toko,
         "🚨 Laporan Komplain": laporan_komplain,
         "🚪 Keluar Admin": admin_logout,
     }

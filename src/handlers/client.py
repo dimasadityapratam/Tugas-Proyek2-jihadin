@@ -13,9 +13,6 @@ from utils import format_rupiah, format_order_detail, get_ongkir, get_gratis_ong
     SEARCH_QUERY,
 ) = range(10)
 
-# Simpan state sementara per user
-user_state = {}
-
 # ─── START ────────────────────────────────────────────────────────────────────
 
 async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
