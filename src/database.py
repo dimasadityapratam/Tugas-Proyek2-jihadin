@@ -129,7 +129,7 @@ def init_db():
     # Seed settings default
     import os
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
     defaults = {
         "ongkir": os.getenv("ONGKIR_DEFAULT", "10000"),
         "min_order": os.getenv("MIN_ORDER_DEFAULT", "0"),
