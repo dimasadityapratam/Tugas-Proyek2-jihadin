@@ -8,7 +8,7 @@ from telegram.ext import (
 from database import init_db
 import os
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 from handlers.client import (
     start, show_katalog, katalog_callback, cari_barang, proses_cari,
