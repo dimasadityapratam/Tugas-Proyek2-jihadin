@@ -447,3 +447,41 @@ def update_complaint(complaint_id, status, resolusi=None):
         conn.execute("UPDATE complaints SET status=? WHERE id=?", (status, complaint_id))
     conn.commit()
     conn.close()
+
+# ─── LAPORAN ──────────────────────────────────────────────────────────────────
+
+def laporan_harian(tanggal):
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT * FROM orders WHERE status='Selesai' AND tanggal LIKE ?",
+        (f"{tanggal}%",)
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def barang_terlaris(limit=5):
+    conn = get_conn()
+    rows = conn.execute(
+        """SELECT nama_produk, SUM(jumlah) as total_terjual
+           FROM order_items
+           GROUP BY nama_produk
+           ORDER BY total_terjual DESC
+           LIMIT ?""",
+        (limit,)
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def customer_terbanyak(limit=5):
+    conn = get_conn()
+    rows = conn.execute(
+        """SELECT u.nama, COUNT(o.order_id) as total_order
+           FROM orders o JOIN users u ON o.user_id=u.user_id
+           WHERE o.status='Selesai'
+           GROUP BY o.user_id
+           ORDER BY total_order DESC
+           LIMIT ?""",
+        (limit,)
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
