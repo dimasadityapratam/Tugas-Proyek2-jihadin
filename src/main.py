@@ -6,7 +6,10 @@ from telegram.ext import (
 )
 
 from database import init_db
-from config import BOT_TOKEN
+import os
+from dotenv import load_dotenv
+load_dotenv()
+BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 from handlers.client import (
     start, show_katalog, katalog_callback, cari_barang, proses_cari,
     show_keranjang, keranjang_callback, checkout_command, checkout_input,
