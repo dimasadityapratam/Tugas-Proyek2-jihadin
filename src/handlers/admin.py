@@ -2,7 +2,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from database import *
 from keyboards import *
-from utils import format_rupiah, format_order_detail, status_with_emoji
+from utils import format_rupiah, format_order_detail, status_with_emoji, escape_md
 
 # LOGIN ADMIN
 async def admin_login(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -64,31 +64,38 @@ async def approve_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if data.startswith("approve_"):
         order_id = data.replace("approve_", "")
         order = get_order(order_id)
-        update_order_status(order_id, "Menunggu Pembayaran")
-        await query.edit_message_text(
-            f"✅ Pesanan `{order_id}` *disetujui*.\nStatus: Menunggu Pembayaran",
-            parse_mode="Markdown"
-        )
-        # Notif customer
-        if order:
-            try:
-                msg = f"✅ Pesanan kamu `{order_id}` telah *disetujui admin*!\n\n"
-                if order["metode_pembayaran"] == "QRIS":
-                    msg += f"Silakan lakukan pembayaran QRIS sebesar *{format_rupiah(order['total'])}*\nGunakan /bayar {order_id}"
-                else:
-                    msg += "Pembayaran COD - bayar saat barang diterima."
-                await ctx.bot.send_message(order["user_id"], msg, parse_mode="Markdown")
-            except Exception:
-                pass
+        if order and order["metode_pembayaran"] == "COD":
+            update_order_status(order_id, "Pesanan Disiapkan")
+            await query.edit_message_text(
+                f"✅ Pesanan {order_id} *disetujui*.\nStatus: Pesanan Disiapkan (COD)",
+                parse_mode="Markdown"
+            )
+            if order:
+                try:
+                    await ctx.bot.send_message(order["user_id"], f"✅ Pesanan kamu {order_id} telah *disetujui admin*!\nPembayaran COD - bayar saat barang diterima.\nPesanan sedang disiapkan.", parse_mode="Markdown")
+                except Exception:
+                    pass
+        else:
+            update_order_status(order_id, "Menunggu Pembayaran")
+            await query.edit_message_text(
+                f"✅ Pesanan {order_id} *disetujui*.\nStatus: Menunggu Pembayaran",
+                parse_mode="Markdown"
+            )
+            if order:
+                try:
+                    msg = f"✅ Pesanan kamu {order_id} telah *disetujui admin*!\n\nSilakan lakukan pembayaran QRIS sebesar *{format_rupiah(order['total'])}*\nGunakan /bayar {order_id}"
+                    await ctx.bot.send_message(order["user_id"], msg, parse_mode="Markdown")
+                except Exception:
+                    pass
 
     elif data.startswith("reject_"):
         order_id = data.replace("reject_", "")
         order = get_order(order_id)
         update_order_status(order_id, "Dibatalkan")
-        await query.edit_message_text(f"❌ Pesanan `{order_id}` *ditolak*.", parse_mode="Markdown")
+        await query.edit_message_text(f"❌ Pesanan {order_id} *ditolak*.", parse_mode="Markdown")
         if order:
             try:
-                await ctx.bot.send_message(order["user_id"], f"❌ Maaf, pesanan kamu `{order_id}` ditolak oleh admin.", parse_mode="Markdown")
+                await ctx.bot.send_message(order["user_id"], f"❌ Maaf, pesanan kamu {order_id} ditolak oleh admin.")
             except Exception:
                 pass
 
@@ -104,7 +111,7 @@ async def update_status_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
     lines = ["🔄 *Pesanan Aktif:*\n"]
     for o in active[:15]:
-        lines.append(f"• `{o['order_id']}` - {status_with_emoji(o['status'])}")
+        lines.append(f"• {o['order_id']} - {status_with_emoji(o['status'])}")
     lines.append("\nGunakan /setstatus <ID> untuk update status.")
     await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
@@ -120,8 +127,7 @@ async def setstatus_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Pesanan tidak ditemukan.")
         return
     await update.message.reply_text(
-        f"📋 Pilih status baru untuk `{order_id}`:",
-        parse_mode="Markdown",
+        f"📋 Pilih status baru untuk {order_id}:",
         reply_markup=status_update_keyboard(order_id, order["metode_pengambilan"])
     )
 
@@ -137,10 +143,10 @@ async def setstatus_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         new_status = parts[2]
         order = get_order(order_id)
         update_order_status(order_id, new_status)
-        await query.edit_message_text(f"✅ Status `{order_id}` diubah ke: *{new_status}*", parse_mode="Markdown")
+        await query.edit_message_text(f"✅ Status {order_id} diubah ke: *{escape_md(new_status)}*", parse_mode="Markdown")
         if order:
             try:
-                msg = f"📦 Update pesanan `{order_id}`:\nStatus: *{status_with_emoji(new_status)}*"
+                msg = f"📦 Update pesanan {order_id}:\nStatus: *{escape_md(status_with_emoji(new_status))}*"
                 kb = None
                 if new_status in ("Pesanan Diterima", "Pesanan Diambil"):
                     kb = konfirmasi_order_keyboard(order_id)
@@ -190,23 +196,23 @@ async def konfirmasi_pembayaran_callback(update: Update, ctx: ContextTypes.DEFAU
             update_payment(order_id, "Lunas")
             update_order_status(order_id, "Pesanan Disiapkan")
             try:
-                await query.edit_message_caption(f"✅ Pembayaran `{order_id}` *dikonfirmasi lunas*.", parse_mode="Markdown")
+                await query.edit_message_caption(f"✅ Pembayaran {order_id} *dikonfirmasi lunas*.", parse_mode="Markdown")
             except Exception:
-                await query.edit_message_text(f"✅ Pembayaran `{order_id}` *dikonfirmasi lunas*.", parse_mode="Markdown")
+                await query.edit_message_text(f"✅ Pembayaran {order_id} *dikonfirmasi lunas*.", parse_mode="Markdown")
             if order:
                 try:
-                    await ctx.bot.send_message(order["user_id"], f"✅ Pembayaran kamu untuk `{order_id}` telah *dikonfirmasi*!\nPesanan sedang disiapkan.", parse_mode="Markdown")
+                    await ctx.bot.send_message(order["user_id"], f"✅ Pembayaran kamu untuk {order_id} telah *dikonfirmasi*!\nPesanan sedang disiapkan.", parse_mode="Markdown")
                 except Exception:
                     pass
         elif action == "tolak":
             update_payment(order_id, "Ditolak")
             try:
-                await query.edit_message_caption(f"❌ Pembayaran `{order_id}` *ditolak*.", parse_mode="Markdown")
+                await query.edit_message_caption(f"❌ Pembayaran {order_id} *ditolak*.", parse_mode="Markdown")
             except Exception:
-                await query.edit_message_text(f"❌ Pembayaran `{order_id}` *ditolak*.", parse_mode="Markdown")
+                await query.edit_message_text(f"❌ Pembayaran {order_id} *ditolak*.", parse_mode="Markdown")
             if order:
                 try:
-                    await ctx.bot.send_message(order["user_id"], f"❌ Bukti pembayaran `{order_id}` ditolak. Silakan upload ulang dengan /bayar {order_id}", parse_mode="Markdown")
+                    await ctx.bot.send_message(order["user_id"], f"❌ Bukti pembayaran {order_id} ditolak. Silakan upload ulang dengan /bayar {order_id}")
                 except Exception:
                     pass
 
@@ -537,13 +543,13 @@ async def laporan_komplain(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         status_icon = "⏳" if c["status"] == "Menunggu" else "✅"
         text = (
             f"🚨 *Komplain #{c['id']}*\n"
-            f"Order: `{c['order_id']}`\n"
-            f"Jenis: {c['jenis']}\n"
-            f"Deskripsi: {c['deskripsi']}\n"
+            f"Order: {escape_md(c['order_id'])}\n"
+            f"Jenis: {escape_md(c['jenis'])}\n"
+            f"Deskripsi: {escape_md(c['deskripsi'])}\n"
             f"Status: {status_icon} {c['status']}"
         )
         if c.get("resolusi"):
-            text += f"\nResolusi: {c['resolusi']}"
+            text += f"\nResolusi: {escape_md(c['resolusi'])}"
         kb = resolusi_komplain_keyboard(c["id"]) if c["status"] == "Menunggu" else None
         if c.get("foto"):
             await update.message.reply_photo(photo=c["foto"], caption=text, parse_mode="Markdown", reply_markup=kb)
@@ -585,8 +591,7 @@ async def resolusi_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             try:
                 await ctx.bot.send_message(
                     complaint["user_id"],
-                    f"✅ Komplain kamu untuk pesanan `{complaint['order_id']}` telah ditangani.\nResolusi: {resolusi_text}",
-                    parse_mode="Markdown"
+                    f"✅ Komplain kamu untuk pesanan {complaint['order_id']} telah ditangani.\nResolusi: {resolusi_text}",
                 )
             except Exception:
                 pass

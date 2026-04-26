@@ -3,7 +3,7 @@ from telegram import Update, InputMediaPhoto
 from telegram.ext import ContextTypes
 from database import *
 from keyboards import *
-from utils import format_rupiah, format_order_detail, get_ongkir, get_gratis_ongkir_min, get_min_order, status_with_emoji
+from utils import format_rupiah, format_order_detail, get_ongkir, get_gratis_ongkir_min, get_min_order, status_with_emoji, escape_md
 
 # ─── CONVERSATION STATES ──────────────────────────────────────────────────────
 (
@@ -21,8 +21,8 @@ async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     toko = get_setting("nama_toko") or "Toko Kami"
     jam = get_setting("jam_buka") or "08:00-21:00"
     await update.message.reply_text(
-        f"👋 Selamat datang di *{toko}*!\n"
-        f"🕐 Jam Buka: {jam}\n\n"
+        f"👋 Selamat datang di *{escape_md(toko)}*!\n"
+        f"🕐 Jam Buka: {escape_md(jam)}\n\n"
         f"Silakan pilih menu di bawah ini 👇",
         parse_mode="Markdown",
         reply_markup=main_menu()
@@ -344,11 +344,11 @@ async def pesanan_saya(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not orders:
         await update.message.reply_text("📦 Kamu belum punya pesanan.", reply_markup=main_menu())
         return
-    lines = ["📦 *Pesanan Saya:*\n"]
+    lines = ["📦 Pesanan Saya:\n"]
     for o in orders[:10]:
-        lines.append(f"• `{o['order_id']}` - {status_with_emoji(o['status'])} - {format_rupiah(o['total'])}")
+        lines.append(f"• {o['order_id']} - {status_with_emoji(o['status'])} - {format_rupiah(o['total'])}")
     lines.append("\nKetik /order <ID> untuk detail pesanan.")
-    await update.message.reply_text("\n".join(lines), parse_mode="Markdown", reply_markup=main_menu())
+    await update.message.reply_text("\n".join(lines), reply_markup=main_menu())
 
 async def order_detail_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not ctx.args:
@@ -375,11 +375,11 @@ async def pembayaran_menu(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not pending:
         await update.message.reply_text("💳 Tidak ada tagihan pembayaran QRIS yang menunggu.", reply_markup=main_menu())
         return
-    lines = ["💳 *Tagihan Pembayaran QRIS:*\n"]
+    lines = ["💳 Tagihan Pembayaran QRIS:\n"]
     for o in pending:
-        lines.append(f"• `{o['order_id']}` - {format_rupiah(o['total'])}")
+        lines.append(f"• {o['order_id']} - {format_rupiah(o['total'])}")
     lines.append("\nKetik /bayar <ID_PESANAN> untuk upload bukti bayar.")
-    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+    await update.message.reply_text("\n".join(lines))
 
 async def bayar_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not ctx.args:
@@ -433,8 +433,7 @@ async def terima_bukti_bayar(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     order = get_order(order_id)
     await update.message.reply_text(
-        f"✅ Bukti pembayaran untuk `{order_id}` telah dikirim.\nMenunggu konfirmasi admin.",
-        parse_mode="Markdown",
+        f"✅ Bukti pembayaran untuk {order_id} telah dikirim.\nMenunggu konfirmasi admin.",
         reply_markup=main_menu()
     )
     # Notif admin
@@ -446,7 +445,7 @@ async def terima_bukti_bayar(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             await ctx.bot.send_photo(
                 chat_id=row["user_id"],
                 photo=foto,
-                caption=f"💳 *Bukti Pembayaran QRIS*\n\nOrder: `{order_id}`\nNama: {order['nama']}\nTotal: {format_rupiah(order['total'])}",
+                caption=f"💳 *Bukti Pembayaran QRIS*\n\nOrder: {escape_md(order_id)}\nNama: {escape_md(order['nama'])}\nTotal: {format_rupiah(order['total'])}",
                 parse_mode="Markdown",
                 reply_markup=konfirmasi_pembayaran_keyboard(order_id)
             )
@@ -464,14 +463,14 @@ async def order_action_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if data.startswith("confirm_order_"):
         order_id = data.replace("confirm_order_", "")
         update_order_status(order_id, "Selesai")
-        await query.edit_message_text(f"🎉 Pesanan `{order_id}` telah dikonfirmasi selesai. Terima kasih!", parse_mode="Markdown")
+        await query.edit_message_text(f"🎉 Pesanan {order_id} telah dikonfirmasi selesai. Terima kasih!")
         # Notif admin
         admins = get_conn()
         rows = admins.execute("SELECT user_id FROM admins").fetchall()
         admins.close()
         for row in rows:
             try:
-                await ctx.bot.send_message(row["user_id"], f"✅ Pesanan `{order_id}` dikonfirmasi selesai oleh customer.", parse_mode="Markdown")
+                await ctx.bot.send_message(row["user_id"], f"✅ Pesanan {order_id} dikonfirmasi selesai oleh customer.")
             except Exception:
                 pass
 
@@ -515,8 +514,7 @@ async def complaint_input(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         create_complaint(order_id, update.effective_user.id, jenis, desc, foto)
         ctx.user_data["complaint_step"] = None
         await update.message.reply_text(
-            f"✅ Komplain untuk pesanan `{order_id}` telah dikirim.\nAdmin akan segera menangani.",
-            parse_mode="Markdown",
+            f"✅ Komplain untuk pesanan {order_id} telah dikirim.\nAdmin akan segera menangani.",
             reply_markup=main_menu()
         )
         # Notif admin
@@ -525,7 +523,7 @@ async def complaint_input(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         admins.close()
         for row in rows:
             try:
-                msg = f"🚨 *KOMPLAIN BARU*\nOrder: `{order_id}`\nJenis: {jenis}\nDeskripsi: {desc}"
+                msg = f"🚨 *KOMPLAIN BARU*\nOrder: {escape_md(order_id)}\nJenis: {escape_md(jenis)}\nDeskripsi: {escape_md(desc)}"
                 if foto:
                     await ctx.bot.send_photo(row["user_id"], foto, caption=msg, parse_mode="Markdown")
                 else:
@@ -553,7 +551,7 @@ async def hubungi_admin(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     no_hp = get_setting("no_hp_toko") or "-"
     nama_toko = get_setting("nama_toko") or "Toko"
     await update.message.reply_text(
-        f"📞 *Hubungi {nama_toko}*\n\nNo HP/WA: {no_hp}\n\nAtau kirim pesan langsung ke admin melalui bot ini.",
+        f"📞 *Hubungi {escape_md(nama_toko)}*\n\nNo HP/WA: {escape_md(no_hp)}\n\nAtau kirim pesan langsung ke admin melalui bot ini.",
         parse_mode="Markdown",
         reply_markup=main_menu()
     )
