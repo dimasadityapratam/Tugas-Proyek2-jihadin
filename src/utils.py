@@ -1,25 +1,33 @@
+import re
 from database import get_setting
 
 def format_rupiah(amount):
     return f"Rp{amount:,.0f}".replace(",", ".")
 
+def escape_md(text):
+    """Escape karakter khusus Markdown v1 agar tidak merusak parsing."""
+    if not text:
+        return ""
+    # Escape underscore dan karakter lain yang bisa merusak Markdown v1
+    return str(text).replace("_", "\\_").replace("*", "\\*").replace("`", "\\`").replace("[", "\\[")
+
 def format_order_detail(order, items):
     metode = order["metode_pengambilan"]
     bayar = order["metode_pembayaran"]
     lines = [
-        f"🧾 *Invoice: {order['order_id']}*",
-        f"📅 Tanggal: {order['tanggal']}",
-        f"👤 Nama: {order['nama']}",
-        f"📱 No HP: {order['no_hp']}",
-        f"📍 Alamat: {order['alamat']}",
-        f"🚚 Pengambilan: {metode}",
-        f"💳 Pembayaran: {bayar}",
-        f"📊 Status: *{order['status']}*",
+        f"🧾 *Invoice: {escape_md(order['order_id'])}*",
+        f"📅 Tanggal: {escape_md(order['tanggal'])}",
+        f"👤 Nama: {escape_md(order['nama'])}",
+        f"📱 No HP: {escape_md(order['no_hp'])}",
+        f"📍 Alamat: {escape_md(order['alamat'])}",
+        f"🚚 Pengambilan: {escape_md(metode)}",
+        f"💳 Pembayaran: {escape_md(bayar)}",
+        f"📊 Status: *{escape_md(order['status'])}*",
         "",
         "🛒 *Item Pesanan:*",
     ]
     for item in items:
-        lines.append(f"  • {item['nama_produk']} x{item['jumlah']} = {format_rupiah(item['subtotal'])}")
+        lines.append(f"  • {escape_md(item['nama_produk'])} x{item['jumlah']} = {format_rupiah(item['subtotal'])}")
     lines += [
         "",
         f"💰 Subtotal: {format_rupiah(order['subtotal'])}",
@@ -27,7 +35,7 @@ def format_order_detail(order, items):
         f"💵 *Total: {format_rupiah(order['total'])}*",
     ]
     if order.get("catatan"):
-        lines.append(f"📝 Catatan: {order['catatan']}")
+        lines.append(f"📝 Catatan: {escape_md(order['catatan'])}")
     return "\n".join(lines)
 
 def get_ongkir():
