@@ -63,7 +63,9 @@ Aturan format:
 - Pisahkan bagian dengan baris kosong
 - Maksimal tampilkan 5 produk per jawaban
 - Akhiri dengan arahan ke menu bot yang sesuai, contoh: "Silakan tekan tombol 🛒 Lihat Katalog untuk memesan"
-- Gunakan tanda bintang tunggal untuk *teks penting*, bukan ganda"""
+- Gunakan tanda bintang tunggal untuk *teks penting*, JANGAN gunakan tanda bintang ganda (**)
+- JANGAN gunakan tanda bintang ganda (**teks**) sama sekali, karena tidak akan ter-render dengan benar
+- Gunakan emoji untuk membuat teks lebih menarik dan mudah dibaca"""
 
 
 def _build_daftar_produk():
@@ -157,4 +159,4 @@ async def tanya_ai(update, ctx):
         logger.error(f"Groq error: {type(e).__name__}: {e}")
         jawaban = "Maaf, asisten AI sedang tidak tersedia. Silakan hubungi admin langsung."
 
-    await update.message.reply_text(jawaban)
+    await update.message.reply_text(jawaban, parse_mode="Markdown")
