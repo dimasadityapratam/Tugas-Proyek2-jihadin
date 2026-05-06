@@ -126,6 +126,27 @@ def init_db():
     for cat in categories:
         c.execute("INSERT OR IGNORE INTO categories (nama) VALUES (?)", (cat,))
 
+    # Seed produk default (hanya jika belum ada produk)
+    c.execute("SELECT COUNT(*) FROM products")
+    if c.fetchone()[0] == 0:
+        default_products = [
+            ("Beras 5kg", 65000, 50, "Beras putih premium 5kg", None, 1),
+            ("Minyak Goreng 1L", 18000, 30, "Minyak goreng 1 liter", None, 1),
+            ("Gula Pasir 1kg", 15000, 40, "Gula pasir putih 1kg", None, 1),
+            ("Aqua 600ml", 4000, 100, "Air mineral botol 600ml", None, 2),
+            ("Teh Botol 350ml", 5000, 80, "Minuman teh manis 350ml", None, 2),
+            ("Indomie Goreng", 3500, 200, "Mie instan rasa goreng", None, 3),
+            ("Chitato 68g", 12000, 60, "Keripik kentang rasa sapi panggang", None, 3),
+            ("Sabun Mandi Lifebuoy", 5000, 50, "Sabun mandi batang 85g", None, 7),
+            ("Deterjen Rinso 800g", 22000, 30, "Deterjen bubuk 800g", None, 7),
+            ("Gas LPG 3kg", 22000, 20, "Tabung gas LPG 3kg", None, 5),
+        ]
+        for nama, harga, stok, deskripsi, foto, cat_id in default_products:
+            c.execute(
+                "INSERT INTO products (nama, harga, stok, deskripsi, foto, category_id) VALUES (?, ?, ?, ?, ?, ?)",
+                (nama, harga, stok, deskripsi, foto, cat_id)
+            )
+
     # Seed settings default
     import os
     from dotenv import load_dotenv
