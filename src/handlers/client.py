@@ -23,6 +23,8 @@ async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         f"👋 Selamat datang di *{escape_md(toko)}*!\n"
         f"🕐 Jam Buka: {escape_md(jam)}\n\n"
+        f"🤖 *Bot ini dilengkapi dengan AI Assistant!*\n"
+        f"Ketik pertanyaan apa saja seputar toko, produk, atau pesananmu — AI kami siap membantu.\n\n"
         f"Silakan pilih menu di bawah ini 👇",
         parse_mode="Markdown",
         reply_markup=main_menu()
