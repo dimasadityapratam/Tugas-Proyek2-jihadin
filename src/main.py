@@ -17,6 +17,7 @@ from handlers.client import (
     bayar_command, pembayaran_callback, terima_bukti_bayar, order_action_callback,
     complaint_input, show_promo, hubungi_admin
 )
+from handlers.ai import tanya_ai
 
 from handlers.admin import (
     admin_login, check_pin, admin_logout,
@@ -126,6 +127,8 @@ async def message_router(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await menu_map[text](update, ctx)
     elif text in admin_map:
         await admin_map[text](update, ctx)
+    else:
+        await tanya_ai(update, ctx)
 
 async def photo_router(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """Router untuk pesan foto."""
