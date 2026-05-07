@@ -1,3 +1,7 @@
+import html
+import json
+import traceback
+from handlers.ai import tanya_ai
 import logging
 from telegram import Update
 from telegram.ext import (
@@ -17,7 +21,6 @@ from handlers.client import (
     bayar_command, pembayaran_callback, terima_bukti_bayar, order_action_callback,
     complaint_input, show_promo, hubungi_admin
 )
-from handlers.ai import tanya_ai
 
 from handlers.admin import (
     admin_login, check_pin, admin_logout,
@@ -33,7 +36,15 @@ from handlers.admin import (
     laporan_komplain, resolusi_callback
 )
 
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
+# --- 1. SETUP LOGGING KE FILE DAN CONSOLE ---
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO,
+    handlers=[
+        logging.FileHandler("error_log.txt"), # Menyimpan log ke file
+        logging.StreamHandler()               # Menampilkan log di terminal
+    ]
+)
 logger = logging.getLogger(__name__)
 
 async def error_handler(update: object, ctx: ContextTypes.DEFAULT_TYPE):
@@ -128,8 +139,7 @@ async def message_router(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     elif text in admin_map:
         await admin_map[text](update, ctx)
     else:
-        await tanya_ai(update, ctx)
-
+        await tanya_ai(update. ctx)
 async def photo_router(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """Router untuk pesan foto."""
     # Upload bukti bayar
@@ -195,6 +205,36 @@ async def cari_command(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🔍 Ketik nama barang yang ingin dicari:")
 
 # ─── MAIN ─────────────────────────────────────────────────────────────────────
+# --- 2. FUNGSI CRASH REPORTING ---
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    # A. Catat error secara detail ke file error_log.txt
+    logger.error("Exception while handling an update:", exc_info=context.error)
+
+    # B. Ambil ID Admin Utama dari .env
+    admin_id = os.getenv("ADMIN_CHAT_ID")
+    if not admin_id:
+        return
+
+    # C. Kumpulkan detail traceback error
+    tb_list = traceback.format_exception(None, context.error, context.error.__traceback__)
+    tb_string = "".join(tb_list)
+
+    # D. Format pesan laporan (dibatasi agar tidak melebihi batas karakter Telegram)
+    # Kita menggunakan HTML parse_mode agar rapi
+    message = (
+        f"🚨 *BOT CRASH REPORT* 🚨\n\n"
+        f"<b>Error:</b>\n<pre>{html.escape(tb_string[-3000:])}</pre>\n\n"
+    )
+
+    # E. Kirim notifikasi ke Admin
+    try:
+        await context.bot.send_message(
+            chat_id=admin_id,
+            text=message,
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        logger.error(f"Gagal mengirim laporan error ke Telegram Admin: {e}")
 
 def main():
     init_db()
