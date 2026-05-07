@@ -139,7 +139,8 @@ async def message_router(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     elif text in admin_map:
         await admin_map[text](update, ctx)
     else:
-        await tanya_ai(update. ctx)
+        await tanya_ai(update, ctx)
+
 async def photo_router(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """Router untuk pesan foto."""
     # Upload bukti bayar
